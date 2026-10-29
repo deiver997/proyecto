@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Personas</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 min-h-screen py-10 px-4">
+
+    <div class="max-w-2xl mx-auto bg-white shadow-lg rounded-xl p-6 md:p-8">
+        <h1 class="text-2xl font-bold text-slate-800 mb-6 text-center">Registro de Personas (Base de Datos)</h1>
+
+        <!-- Formulario para agregar -->
+        <form id="personaForm" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+            <div>
+                <label for="nombre1" class="block text-sm font-medium text-slate-700 mb-1">Primer Nombre</label>
+                <input type="text" id="nombre1" name="nombre1" required 
+                    class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                    placeholder="Ej. Juan">
+            </div>
+            <div>
+                <label for="apellido1" class="block text-sm font-medium text-slate-700 mb-1">Primer Apellido</label>
+                <input type="text" id="apellido1" name="apellido1" required 
+                    class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                    placeholder="Ej. Pérez">
+            </div>
+            <div class="md:col-span-2">
+                <button type="submit" id="btnSubmit"
+                    class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-4 rounded-lg transition duration-200 shadow-md">
+                    Guardar en Base de Datos
+                </button>
+            </div>
+        </form>
+
+        <!-- Tabla con la lista -->
+        <div class="overflow-x-auto border border-slate-200 rounded-lg">
+            <table class="w-full text-left border-collapse">
+                <thead class="bg-slate-50 text-slate-700 uppercase text-xs tracking-wider border-b border-slate-200">
+                    <tr>
+                        <th class="py-3 px-4">#</th>
+                        <th class="py-3 px-4">Nombre 1</th>
+                        <th class="py-3 px-4">Apellido 1</th>
+                    </tr>
+                </thead>
+                <tbody id="tablaPersonas" class="divide-y divide-slate-200 text-slate-600 text-sm">
+                    <tr>
+                        <td colspan="3" class="py-6 text-center text-slate-400">Cargando registros...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Lógica de JavaScript -->
+    <script>
+        const form = document.getElementById('personaForm');
+        const tablaPersonas = document.getElementById('tablaPersonas');
+
+        // Función para cargar la lista de personas desde la base de datos en tiempo real
+        async function cargarPersonas() {
+            try {
+                const response = await fetch('obtener.php');
+                const resultado = await response.json();
+
+                if (resultado.success) {
+                    renderizarTabla(resultado.data);
+                } else {
+                    console.error('Error al cargar:', resultado.message);
+                }
+            } catch (error) {
+                console.error('Error de red al obtener datos:', error);
+            }
+        }
+
+        // Función para pintar los datos en la tabla HTML
+        function renderizarTabla(personas) {
+            tablaPersonas.innerHTML = '';
+
+            if (personas.length === 0) {
+                tablaPersonas.innerHTML = `
+                    <tr>
+                        <td colspan="3" class="py-6 text-center text-slate-400">No hay personas registradas aún.</td>
+                    </tr>
+                `;
+                return;
+            }
+
+            personas.forEach((persona, index) => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-50 transition duration-150';
+                tr.innerHTML = `
+                    <td class="py-3 px-4 font-medium text-slate-500">${index + 1}</td>
+                    <td class="py-3 px-4 text-slate-800 font-medium">${escapeHTML(persona.nombre1)}</td>
+                    <td class="py-3 px-4 text-slate-800 font-medium">${escapeHTML(persona.apellido1)}</td>
+                `;
+                tablaPersonas.appendChild(tr);
+            });
+        }
+
+        // Manejar el envío del formulario sin recargar la página completa
+        form.addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const formData = new FormData(form);
+            const btnSubmit = document.getElementById('btnSubmit');
+
+            try {
+                btnSubmit.disabled = true;
+                btnSubmit.textContent = 'Guardando...';
+
+                const response = await fetch('guardar.php', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const resultado = await response.json();
+
+                if (resultado.success) {
+                    form.reset();
+                    document.getElementById('nombre1').focus();
+                    
+                    // Recargar la tabla automáticamente en tiempo real
+                    await cargarPersonas();
+                } else {
+                    alert('Error: ' + resultado.message);
+                }
+            } catch (error) {
+                console.error('Error de red:', error);
+                alert('Ocurrió un error al conectar con el servidor.');
+            } finally {
+                btnSubmit.disabled = false;
+                btnSubmit.textContent = 'Guardar en Base de Datos';
+            }
+        });
+
+        // Cargar los registros automáticamente apenas se abre la página
+        document.addEventListener('DOMContentLoaded', cargarPersonas);
+
+        // Seguridad básica contra XSS
+        function escapeHTML(str) {
+            return str.replace(/[&<>'"]/g, 
+                tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
+            );
+        }
+    </script>
+</body>
+</html>
